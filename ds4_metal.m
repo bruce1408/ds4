@@ -357,7 +357,7 @@ static void ds4_gpu_model_views_clear(void) {
 }
 
 static void ds4_gpu_model_residency_clear(void) {
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX && defined(MAC_OS_VERSION_15_0)
     if (@available(macOS 15.0, *)) {
         if (g_model_residency_set) {
             [g_model_residency_set endResidency];
@@ -372,7 +372,7 @@ static void ds4_gpu_model_residency_clear(void) {
 static int ds4_gpu_model_residency_request_views(void) {
     if (g_model_view_count == 0 || getenv("DS4_METAL_NO_RESIDENCY") != NULL) return 1;
 
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX && defined(MAC_OS_VERSION_15_0)
     if (@available(macOS 15.0, *)) {
         /*
          * Register all model views as one residency set before inference. This
@@ -2670,6 +2670,14 @@ int ds4_gpu_init(void) {
 
     @autoreleasepool {
         g_device = MTLCreateSystemDefaultDevice();
+        if (!g_device) {
+            NSArray<id<MTLDevice>> *all = MTLCopyAllDevices();
+            if ([all count] > 0) {
+                g_device = all[0];
+                fprintf(stderr, "ds4: MTLCreateSystemDefaultDevice returned nil, using %s instead\n",
+                        [[g_device name] UTF8String]);
+            }
+        }
         if (!g_device) {
             fprintf(stderr, "ds4: Metal device not available\n");
             return 0;
